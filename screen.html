@@ -1,0 +1,285 @@
+<!DOCTYPE html>
+<html lang="kn">
+<head>
+<meta charset="UTF-8">
+<title>VK Overlay Screen</title>
+<link href="https://fonts.googleapis.com/css2?family=Anek+Kannada:wght@100;400;600;700;800&display=swap" rel="stylesheet">
+<!-- FIREBASE SDK -->
+<script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
+<script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
+<style>
+:root {
+  --R: #D0021B; --R2: #FF1A35; --G: #C8860A; --G2: #F5A623; --G3: #FFD966;
+  --W: #FFFFFF; --S: #B8C6D8; --D: #05050E; --BL: rgba(5,5,14,0.85);
+  --font: 'Anek Kannada', sans-serif;
+  
+  /* Defaults overridden by Firebase */
+  --lp-x: 28px; --lp-y: 112px; --lp-w: 440px;
+  --rp-x: 28px; --rp-y: 112px; --rp-w: 390px;
+  --bb-x: 0px; --bb-y: 96px; --bb-w: 960px;
+  --lt-y: 68px; --hdr-y: 0px; --tk-spd: 30s;
+  --fz-hdr: 48px; --fz-ltm: 36px; --fz-eye: 12px; --fz-ltr: 28px; --fz-bb: 56px; --fz-hl: 18px;
+}
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: var(--font); background: transparent; overflow: hidden; margin: 0; }
+
+#OV { width: 1920px; height: 1080px; position: absolute; top: 0; left: 0; transform-origin: top left; }
+
+/* ──── TOP HEADER ──── */
+#TOP { position: absolute; top: var(--hdr-y); left: 0; right: 0; height: 96px; z-index: 20; transition: top 0.3s, opacity 0.3s; }
+.top-bg { position: absolute; inset: 0; background: linear-gradient(90deg, #060610 0%, #0c1640 25%, #10193a 50%, #180608 75%, #060610 100%); }
+.top-border { position: absolute; bottom: 0; left: 0; right: 0; height: 3px; background: linear-gradient(90deg, transparent 0%, var(--R) 8%, var(--G) 25%, var(--G2) 50%, var(--G) 75%, var(--R) 92%, transparent 100%); }
+.top-inner { position: absolute; inset: 0; display: flex; align-items: center; padding: 0 32px; gap: 0; }
+#LOGO_PH { display: flex; flex-direction: column; align-items: center; justify-content: center; width: 110px; height: 64px; border: 1.5px solid rgba(245,166,35,0.25); border-radius: 6px; background: rgba(255,255,255,0.03); margin-right:24px;}
+#LOGO_PH .lph1 { font-size: 13px; font-weight: 800; color: var(--R); } #LOGO_PH .lph2 { font-size: 8px; color: var(--G2); letter-spacing: 2px; }
+.top-div { width: 2px; height: 60px; margin: 0 24px; background: linear-gradient(180deg, transparent, var(--G2), transparent); }
+.top-headlines { flex: 1; display: flex; align-items: center; position: relative; height: 100%; overflow: hidden;}
+.hdr-slide { position: absolute; width: 100%; font-size: var(--fz-hdr); font-weight: 800; color: #fff; line-height: 1; text-shadow: 0 2px 24px rgba(0,0,0,0.9); white-space: nowrap; opacity: 0; transform: translateY(20px); transition: all 0.5s cubic-bezier(0.25,1,0.5,1); }
+.hdr-slide.active { opacity: 1; transform: translateY(0); }
+.top-right { display: flex; flex-direction: column; align-items: flex-end; gap: 5px; margin-left: 24px; }
+#LIVE_BADGE { display: flex; align-items: center; gap: 8px; background: linear-gradient(135deg, #b00010, var(--R2)); padding: 6px 20px; border-radius: 3px; font-size: 18px; font-weight: 900; letter-spacing: 3px; color: #fff; } #LIVE_BADGE .ldot { width: 9px; height: 9px; background: #fff; border-radius: 50%; animation: bl .85s infinite; }
+#TOP_CLOCK { font-size: 14px; color: var(--S); letter-spacing: 1px; }
+
+/* ──── BIG BREAKING (RIGHT ANCHORED) ──── */
+#BIG_BRK { position: absolute; top: var(--bb-y); right: var(--bb-x); bottom: 64px; width: var(--bb-w); background: linear-gradient(135deg, rgba(208,2,27,0.98) 0%, rgba(10,0,5,0.98) 100%); border-left: 4px solid var(--G2); z-index: 19; display: flex; flex-direction: column; justify-content: center; align-items: flex-start; padding: 60px; opacity: 0; transform: translateX(calc(100% + var(--bb-x) + 50px)); transition: transform 0.6s cubic-bezier(0.25, 1, 0.5, 1), opacity 0.6s; box-shadow: -20px 0 60px rgba(0,0,0,0.8); }
+#BIG_BRK.active { transform: translateX(0); opacity: 1; }
+.bb-tag { background: #fff; color: var(--R); display: inline-block; padding: 8px 32px; font-size: 26px; font-weight: 900; letter-spacing: 6px; border-radius: 6px; margin-bottom: 30px; box-shadow: 0 4px 20px rgba(0,0,0,0.5); }
+.bb-slide { position: absolute; width: 85%; font-size: var(--fz-bb); font-weight: 800; color: #fff; line-height: 1.35; text-shadow: 0 4px 30px rgba(0,0,0,0.9); opacity: 0; transform: translateX(30px); transition: all 0.5s ease; white-space: normal; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 4; -webkit-box-orient: vertical; }
+.bb-slide.active { opacity: 1; transform: translateX(0); position: relative; }
+.bb-hl { color: var(--G3); font-weight: 900; border-bottom: 4px solid var(--G3); padding-bottom: 4px;}
+
+/* ──── LEFT PANEL (FIXED OVERLAPPING) ──── */
+#LP { position: absolute; top: var(--lp-y); left: var(--lp-x); width: var(--lp-w); z-index: 10; transition: all 0.3s; }
+.lp-wrap { background: var(--BL); border: 1px solid var(--BORDER); border-left: 4px solid var(--G2); border-radius: 0 12px 12px 0; overflow: hidden; backdrop-filter: blur(24px); box-shadow: 0 12px 50px rgba(0,0,0,.7); }
+.lp-head { background: linear-gradient(90deg, rgba(200,134,10,0.15) 0%, rgba(200,134,10,0.04) 100%); padding: 12px 16px; border-bottom: 1px solid var(--BORDER2); }
+.lp-head-title { font-size: 15px; font-weight: 800; color: var(--G3); letter-spacing: .3px; }
+.lp-hl-row { display: flex; gap: 16px; align-items: center; padding: 14px 16px; border-bottom: 1px solid rgba(255,255,255,0.04); } .lp-hl-row:last-child { border-bottom: none; }
+.lp-hl-icon { font-size: 28px; flex-shrink: 0; background: rgba(255,255,255,0.05); width: 48px; height: 48px; display: flex; align-items: center; justify-content: center; border-radius: 8px; border: 1px solid rgba(255,255,255,0.08); }
+.lp-hl-txt { font-size: var(--fz-hl); font-weight: 600; line-height: 1.3; color: #fff; white-space: normal; word-wrap: break-word; padding-right: 5px;}
+
+/* ──── RIGHT PANEL ──── */
+#RP { position: absolute; top: var(--rp-y); right: var(--rp-x); width: var(--rp-w); z-index: 8; transition: all 0.3s; }
+.rp-wrap { background: var(--BL); border: 1px solid var(--BORDER); border-radius: 12px; overflow: hidden; backdrop-filter: blur(24px); }
+.rp-head { background: linear-gradient(90deg, rgba(11,21,53,0.8), rgba(24,4,12,0.8)); padding: 12px 18px; border-bottom: 2px solid var(--G2); display: flex; align-items: center; gap: 12px; } .rp-icon { font-size: 26px; } .rp-head-info .rp-h1 { font-size: 15px; font-weight: 800; color: var(--G2); }
+.rp-row { display: flex; justify-content: space-between; align-items: center; padding: 9px 16px; border-bottom: 1px solid rgba(255,255,255,0.04); } .rp-row:last-child { border-bottom: none; }
+.rp-row-l .rpr-lbl { font-size: 12px; color: var(--S); } .rp-row-l .rpr-bar { height: 2px; background: rgba(255,255,255,0.06); width: 150px; } .rp-row-l .rpr-bf { height: 100%; } .rp-row-r { font-size: 17px; font-weight: 800; }
+
+/* ──── LOWER THIRD (FIXED COUNTER & WRAPPING) ──── */
+#LT { position: absolute; bottom: var(--lt-y); left: 0; right: 0; z-index: 15; transition: all 0.4s cubic-bezier(.4,0,.2,1); }
+#LT.hidden { transform: translateY(150%); opacity: 0; }
+.lt-wrap { display: grid; grid-template-columns: 148px 1fr auto; align-items: stretch; background: rgba(5,5,14,0.95); border-top: 4px solid var(--R); box-shadow: 0 -8px 40px rgba(0,0,0,0.8); backdrop-filter: blur(20px); overflow: hidden; height: 110px;}
+.lt-label { background: linear-gradient(135deg, #a50010, var(--R)); display: flex; flex-direction: column; align-items: center; justify-content: center; border-right: 2px solid var(--G2); }
+.lt-lbl-main { font-size: 14px; font-weight: 800; color: #fff; letter-spacing: 1px; }
+.lt-lbl-sub { font-size: 8px; color: rgba(255,255,255,.7); letter-spacing: 2px; }
+.lt-center { position: relative; padding: 0 24px; display: flex; align-items: center; border-right: 1px solid rgba(255,255,255,0.06); overflow: hidden; min-width: 0; flex: 1;}
+.lt-slide { position: absolute; left: 24px; right: 24px; display: flex; align-items: center; gap: 20px; opacity: 0; transform: translateY(20px); transition: all 0.4s ease; min-width: 0;}
+.lt-slide.active { opacity: 1; transform: translateY(0); }
+.lt-icon { font-size: 48px; filter: drop-shadow(0 2px 8px rgba(0,0,0,0.5)); flex-shrink: 0;}
+.lt-text-wrap { display: flex; flex-direction: column; justify-content: center; min-width: 0;}
+.lt-eye { font-size: var(--fz-eye); font-weight: 600; color: var(--G2); letter-spacing: 2px; margin-bottom: 2px;}
+.lt-main { font-size: var(--fz-ltm); font-weight: 800; color: #fff; line-height: 1.15; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; white-space: normal;}
+
+/* Counter Right Box - Distinct Background */
+.lt-right { padding: 0 32px; display: flex; flex-direction: column; justify-content: center; align-items: flex-end; gap: 4px; min-width: 260px; background: linear-gradient(135deg, #1A0404, #350005); border-left: 2px solid var(--G2); }
+#LT_RVAL { font-size: var(--fz-ltr); font-weight: 900; color: var(--G3); line-height: 1; transition: color 0.3s; }
+#LT_RLBL { font-size: 12px; color: var(--S); letter-spacing: .5px; }
+.lt-gold-line { height: 2px; background: linear-gradient(90deg, var(--R), var(--G2), var(--G3), var(--G2), var(--R)); }
+
+/* ──── TICKER ──── */
+#TK { position: absolute; bottom: 0; left: 0; right: 0; height: 64px; z-index: 20; overflow: hidden; display: flex; align-items: center; }
+.tk-bg { position: absolute; inset: 0; background: linear-gradient(90deg, var(--D) 0%, #0e0510 20%, #0a0310 80%, var(--D) 100%); }
+.tk-topline { position: absolute; top: 0; left: 0; right: 0; height: 2px; background: linear-gradient(90deg, transparent, var(--G), var(--G2), var(--G), transparent); }
+#TK_LBL { position: relative; z-index: 2; background: linear-gradient(135deg, #900010, var(--R)); color: #fff; font-size: 16px; font-weight: 800; padding: 0 22px; height: 100%; display: flex; align-items: center; border-right: 2px solid var(--G2); white-space: nowrap; flex-shrink: 0; letter-spacing: 1px; box-shadow: 4px 0 20px rgba(0,0,0,.5); }
+.tk-track { position: relative; z-index: 2; flex: 1; overflow: hidden; height: 100%; display: flex; align-items: center; }
+#TK_INNER { display: inline-flex; align-items: center; white-space: nowrap; font-size: 20px; font-weight: 500; color: #fff; padding-left: 100%; }
+.marquee-anim { animation: tickscroll var(--tk-spd) linear infinite; }
+#TK_INNER span { margin: 0 40px; } .tbul { color: var(--G2); font-size: 13px; }
+@keyframes tickscroll { 0% { transform: translateX(0); } 100% { transform: translateX(-100%); } }
+
+@keyframes bl { 0%,100%{opacity:1}50%{opacity:.2} }
+</style>
+</head>
+<body>
+
+<div id="OV">
+  <!-- Top Bar -->
+  <div id="TOP">
+    <div class="top-bg"></div><div class="top-border"></div>
+    <div class="top-inner">
+      <div id="LOGO_PH"><div class="lph1">VIJAY</div><div class="lph2">KARNATAKA</div></div>
+      <div class="top-div"></div>
+      <div class="top-headlines" id="TOP_SLIDES_CONTAINER"></div>
+      <div class="top-right"><div id="LIVE_BADGE"><span class="ldot"></span>LIVE</div><div id="TOP_CLOCK"></div></div>
+    </div>
+  </div>
+
+  <!-- Big Breaking (Right Side) -->
+  <div id="BIG_BRK">
+    <div class="bb-tag">BREAKING NEWS</div>
+    <div id="BB_SLIDES_CONTAINER" style="position:relative; width:100%; height:180px;"></div>
+  </div>
+
+  <!-- Left Highlights -->
+  <div id="LP"><div class="lp-wrap"><div class="lp-head"><span class="lp-head-title">ಬಜೆಟ್ ಮುಖ್ಯಾಂಶಗಳು</span></div><div id="LP_BODY"></div></div></div>
+
+  <!-- Right Panel -->
+  <div id="RP"><div class="rp-wrap"><div class="rp-head"><div class="rp-icon">📊</div><div class="rp-head-info"><div class="rp-h1">ರಾಜ್ಯ ಬಜೆಟ್ ಅವಲೋಕನ</div></div></div><div class="rp-body" id="RP_BODY"></div></div></div>
+
+  <!-- Lower Third -->
+  <div id="LT">
+    <div class="lt-wrap">
+      <div class="lt-label"><div class="lt-lbl-main">ವಿಶೇಷ ವರದಿ</div><div class="lt-lbl-sub">LIVE COVERAGE</div></div>
+      <div class="lt-center" id="LT_SLIDES_CONTAINER"></div>
+      <div class="lt-right">
+        <div id="LT_RVAL">₹0 ಕೋಟಿ</div>
+        <div id="LT_RLBL">ಲೆಕ್ಕಾಚಾರ</div>
+      </div>
+    </div>
+    <div class="lt-gold-line"></div>
+  </div>
+
+  <!-- Ticker -->
+  <div id="TK">
+    <div class="tk-bg"></div><div class="tk-topline"></div>
+    <div id="TK_LBL">ಬ್ರೇಕಿಂಗ್ ನ್ಯೂಸ್</div>
+    <div class="tk-track"><div id="TK_INNER" class="marquee-anim"></div></div>
+  </div>
+</div>
+
+<script>
+// ═════════════════════════════════════════════════════════════
+// 1. FIREBASE CONFIGURATION (PASTE YOURS HERE)
+// ═════════════════════════════════════════════════════════════
+const firebaseConfig = {
+  apiKey: "AIzaSyAvfTf9y21b5Ftx8RAiOGyvYXSTiX-czzk",
+  authDomain: "karnataka-budget.firebaseapp.com",
+  databaseURL: "https://karnataka-budget-default-rtdb.firebaseio.com",
+  projectId: "karnataka-budget",
+  storageBucket: "karnataka-budget.firebasestorage.app",
+  messagingSenderId: "585753727115",
+  appId: "1:585753727115:web:3fe168863fc84023bd448e"
+};
+
+// Auto Scale to Window
+function resize() {
+  const scale = Math.min(window.innerWidth / 1920, window.innerHeight / 1080);
+  document.getElementById('OV').style.transform = `scale(${scale})`;
+}
+window.addEventListener('resize', resize);
+resize();
+
+// Clock
+setInterval(() => document.getElementById('TOP_CLOCK').textContent = new Date().toLocaleTimeString('kn-IN'), 1000);
+
+// Initialize Firebase
+if (!firebase.apps.length) { firebase.initializeApp(firebaseConfig); }
+const db = firebase.database();
+const ref = db.ref('vk_broadcast');
+
+// Local Tracking
+let lastTkDataStr = "";
+let lastCounterTrigger = 0;
+
+// Listen for updates
+ref.on('value', snap => {
+  if(!snap.exists()) return;
+  const s = snap.val();
+
+  // 1. Update CSS Variables (Layout & Fonts)
+  if(s.layout) {
+    for (const [key, value] of Object.entries(s.layout)) {
+      document.documentElement.style.setProperty(`--${key.replace(/([a-z])([A-Z])/g, "$1-$2").toLowerCase()}`, value);
+    }
+  }
+
+  // 2. Update Visibility
+  if(s.vis) {
+    document.getElementById('LP').style.opacity = s.vis.lp ? '1' : '0';
+    document.getElementById('RP').style.opacity = s.vis.rp ? '1' : '0';
+    document.getElementById('TOP').style.opacity = s.vis.top ? '1' : '0';
+    
+    const lt = document.getElementById('LT');
+    if(s.vis.lt) lt.classList.remove('hidden'); else lt.classList.add('hidden');
+    
+    const bb = document.getElementById('BIG_BRK');
+    if(s.vis.bb) bb.classList.add('active'); else bb.classList.remove('active');
+  }
+
+  // 3. Render Slides
+  if(s.data) {
+    // Header
+    if(s.data.hdr) {
+      document.getElementById('TOP_SLIDES_CONTAINER').innerHTML = s.data.hdr.map((d,i) => `<div class="hdr-slide ${i===(s.rot.hdr||0)?'active':''}">${d}</div>`).join('');
+    }
+    // Big Breaking
+    if(s.data.bb) {
+      const clean = v => v.replace(/([₹0-9.,]+(?:\s*(?:ಲಕ್ಷ|ಕೋಟಿ|ರೂ|%))?)/g, '<span class="bb-hl">$1</span>');
+      document.getElementById('BB_SLIDES_CONTAINER').innerHTML = s.data.bb.map((d,i) => `<div class="bb-slide ${i===(s.rot.bb||0)?'active':''}">${clean(d)}</div>`).join('');
+    }
+    // Lower Third Center
+    if(s.data.lt) {
+      document.getElementById('LT_SLIDES_CONTAINER').innerHTML = s.data.lt.map((d,i) => `
+        <div class="lt-slide ${i===(s.rot.lt||0)?'active':''}">
+          <div class="lt-icon">${d.icon}</div>
+          <div class="lt-text-wrap"><div class="lt-eye">ಮುಖ್ಯಾಂಶ</div><div class="lt-main">${d.text}</div></div>
+        </div>
+      `).join('');
+    }
+    // Left Highlights
+    if(s.data.hl) {
+      document.getElementById('LP_BODY').innerHTML = s.data.hl.map(h => `<div class="lp-hl-row"><div class="lp-hl-icon">${h.icon}</div><div class="lp-hl-txt">${h.txt}</div></div>`).join('');
+    }
+    // Right Static (Can be made dynamic later)
+    let rpStats = [
+      { lbl: 'ರಾಜಸ್ವ ಆದಾಯ', val: '₹2.94 ಲ.ಕೋ', color: '#FFD966', pct: 85 },
+      { lbl: 'ಬಂಡವಾಳ ವೆಚ್ಚ', val: '₹94,000 ಕೋ', color: '#00C8E8', pct: 55 },
+      { lbl: 'ಒಟ್ಟು ಸಾಲ', val: '₹6.58 ಲ.ಕೋ', color: '#FF6B6B', pct: 70 }
+    ];
+    document.getElementById('RP_BODY').innerHTML = rpStats.map(st => `<div class="rp-row"><div class="rp-row-l"><div class="rpr-lbl">${st.lbl}</div><div class="rpr-bar"><div class="rpr-bf" style="width:${st.pct}%;background:${st.color}"></div></div></div><div class="rp-row-r" style="color:${st.color}">${st.val}</div></div>`).join('');
+
+    // Ticker (Check if changed to reset animation)
+    const tkStr = JSON.stringify(s.data.tk);
+    if(tkStr !== lastTkDataStr) {
+      lastTkDataStr = tkStr;
+      const items = s.data.tk.filter(v => v.trim());
+      let h = items.map(v => `<span>${v}</span><span class="tbul">◆</span>`).join('');
+      const tki = document.getElementById('TK_INNER');
+      tki.classList.remove('marquee-anim');
+      tki.innerHTML = h + h;
+      void tki.offsetWidth; // Trigger reflow
+      tki.classList.add('marquee-anim');
+    }
+  }
+
+  // 4. Update Static Lower Third Right Box OR Animate Counter
+  if(s.counter && s.data && s.data.lt && s.data.lt[s.rot.lt]) {
+    const curLt = s.data.lt[s.rot.lt];
+    const rval = document.getElementById('LT_RVAL');
+    
+    // Check if a new counter trigger fired
+    if(s.counter.trigger !== lastCounterTrigger) {
+      lastCounterTrigger = s.counter.trigger;
+      // Animate
+      let to = parseInt(s.counter.to) || 0;
+      let suf = s.counter.suf || "";
+      rval.style.color = '#fff'; 
+      let start = Date.now();
+      (function frame() {
+        let t = Math.min((Date.now() - start) / 3000, 1);
+        let ease = t < .5 ? 2*t*t : 1-Math.pow(-2*t+2,2)/2;
+        rval.textContent = "₹" + Math.round(to * ease).toLocaleString('en-IN') + suf;
+        if (t < 1) requestAnimationFrame(frame);
+        else rval.style.color = 'var(--G3)'; // Sticks permanently
+      })();
+    } else {
+      // If no new counter trigger, just show the normal static value of the current LT slide
+      rval.textContent = curLt.val;
+      document.getElementById('LT_RLBL').textContent = curLt.lbl;
+    }
+  }
+});
+
+</script>
+</body>
+</html>
