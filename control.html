@@ -1,0 +1,312 @@
+<!DOCTYPE html>
+<html lang="kn">
+<head>
+<meta charset="UTF-8">
+<title>VK Control Panel</title>
+<link href="https://fonts.googleapis.com/css2?family=Anek+Kannada:wght@100;400;600;700;800&display=swap" rel="stylesheet">
+<!-- FIREBASE SDK -->
+<script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
+<script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
+<style>
+  :root { --R: #D0021B; --G2: #F5A623; --S: #B8C6D8; --font: 'Anek Kannada', sans-serif; }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: var(--font); background: #080812; color: #fff; overflow-x: hidden; }
+  #CP { max-width: 600px; margin: 0 auto; min-height: 100vh; background: #060610; border-left: 1px solid rgba(255,255,255,0.1); border-right: 1px solid rgba(255,255,255,0.1); display: flex; flex-direction: column; padding-bottom: 40px;}
+  .cp-hdr { padding: 14px 16px; background: linear-gradient(135deg, #0d1535 0%, #180408 100%); border-bottom: 2px solid var(--G2); }
+  .cp-hdr-name { font-size: 16px; font-weight: 800; color: var(--G2); letter-spacing: 1px; }
+  .cp-tabs { display: flex; border-bottom: 1px solid rgba(255,255,255,0.06); flex-wrap: wrap;}
+  .cptab { flex: 1; padding: 12px 2px; font-size: 11px; font-weight: 700; letter-spacing: 1px; font-family: var(--font); border: none; cursor: pointer; background: transparent; color: rgba(255,255,255,0.3); text-transform: uppercase; border-bottom: 2px solid transparent; }
+  .cptab.A { color: var(--G2); border-bottom-color: var(--G2); background: rgba(245,166,35,0.06); }
+  .cp-panel { display: none; padding: 16px; flex: 1; } .cp-panel.A { display: block; }
+  .S { font-size: 11px; font-weight: 800; letter-spacing: 2px; color: var(--G2); text-transform: uppercase; padding: 10px 0 6px; border-bottom: 1px solid rgba(200,134,10,0.2); margin-bottom: 12px; margin-top: 10px; display: flex; justify-content: space-between; align-items: center;}
+  .R { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
+  .R label.L { font-size: 12px; color: var(--S); min-width: 100px; flex-shrink: 0; }
+  .R input, .R textarea { flex: 1; background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); color: #fff; padding: 8px; border-radius: 4px; font-family: var(--font); font-size: 13px; outline: none; }
+  .R input[type=range] { accent-color: var(--G2); cursor: pointer; }
+  .TR { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; padding: 6px 0; border-bottom: 1px dashed rgba(255,255,255,0.05);}
+  .TR .TL { font-size: 12px; color: var(--S); }
+  .TG { position: relative; width: 40px; height: 20px; } .TG input { opacity: 0; width: 0; height: 0; }
+  .TS { position: absolute; cursor: pointer; inset: 0; background: rgba(255,255,255,0.1); border-radius: 20px; transition: .25s; } .TS::before { content: ''; position: absolute; width: 14px; height: 14px; left: 3px; top: 3px; background: #fff; border-radius: 50%; transition: .25s; } input:checked + .TS { background: var(--R); } input:checked + .TS::before { transform: translateX(20px); }
+  .B { width: 100%; padding: 10px; border-radius: 5px; font-family: var(--font); font-size: 12px; font-weight: 700; letter-spacing: .8px; cursor: pointer; border: none; margin-bottom: 8px; text-transform: uppercase; }
+  .BR { background: var(--R); color: #fff; } .BG { background: var(--G2); color: #000; } .BO { background: transparent; color: var(--S); border: 1px solid rgba(255,255,255,0.15); } .BP { background: #A855F7; color: #fff; }
+  .PG { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+  .edit-box { background:rgba(255,255,255,.03); border:1px solid rgba(255,255,255,.08); border-radius:6px; padding:10px; margin-bottom:8px; position:relative; }
+  .del-btn { position:absolute; top:6px; right:6px; background:var(--R); color:#fff; border:none; border-radius:3px; width:24px; height:24px; cursor:pointer; }
+  #FIRE_STATUS { padding: 8px; text-align: center; font-size: 12px; font-weight: bold; background: #444; color: #fff; }
+  #FIRE_STATUS.ok { background: #00C46A; }
+</style>
+</head>
+<body>
+
+<div id="FIRE_STATUS">Connecting to Firebase...</div>
+
+<div id="CP">
+  <div class="cp-hdr">
+    <div class="cp-hdr-name">🎬 VK BROADCAST PRO: CONTROL PANEL</div>
+    <div style="display:flex;gap:5px;margin-top:10px">
+      <button class="B BR" style="margin:0;flex:1" onclick="updateGlobal('showAll', true)">▶ GO LIVE</button>
+      <button class="B BO" style="margin:0;flex:1" onclick="updateGlobal('showAll', false)">⏹ STANDBY</button>
+    </div>
+  </div>
+
+  <div class="cp-tabs">
+    <button class="cptab A" onclick="switchTab('slides',this)">Slides & Text</button>
+    <button class="cptab" onclick="switchTab('ai',this)" style="color:#A855F7">🤖 AI Parse</button>
+    <button class="cptab" onclick="switchTab('layout',this)">Layout Controls</button>
+  </div>
+
+  <!-- SLIDES TAB -->
+  <div class="cp-panel A" id="p-slides">
+    <div class="S"><span>📺 Top Bar Header</span><button class="BO" style="padding:2px 6px; font-size:10px" onclick="clearArr('hdr')">Clear</button></div>
+    <div id="hdr_list"></div>
+    <button class="B BO" onclick="addArr('hdr', 'ಹೊಸ ಹೆಡರ್')">+ Add Header Text</button>
+
+    <div class="S"><span>🚨 Big Breaking (Right Side)</span><button class="BO" style="padding:2px 6px; font-size:10px" onclick="clearArr('bb')">Clear</button></div>
+    <div id="bb_list"></div>
+    <button class="B BO" onclick="addArr('bb', 'ಹೊಸ ಬ್ರೇಕಿಂಗ್')">+ Add Breaking Slide</button>
+    <div class="TR" style="margin-top:10px"><span class="TL">Show Big Breaking Panel</span><label class="TG"><input type="checkbox" id="t_bb" onchange="syncVis('bb',this.checked)"><span class="TS"></span></label></div>
+
+    <div class="S"><span>📋 Lower Third Slides</span><button class="BO" style="padding:2px 6px; font-size:10px" onclick="clearArr('lt')">Clear</button></div>
+    <div id="lt_list"></div>
+    <button class="B BO" onclick="addLt()">+ Add LT Slide</button>
+
+    <div class="S">⏱️ Trigger Counter (LT Right Box)</div>
+    <div class="R"><label class="L">Value</label><input type="number" id="c_to" value="371383"></div>
+    <div class="R"><label class="L">Suffix</label><input type="text" id="c_suf" value=" ಕೋಟಿ"></div>
+    <button class="B BR" onclick="triggerCounter()">▶ ANIMATE COUNTER</button>
+
+    <div class="S"><span>📌 Left Panel Highlights</span><button class="BO" style="padding:2px 6px; font-size:10px" onclick="clearArr('hl')">Clear</button></div>
+    <div id="hl_list"></div>
+    <button class="B BO" onclick="addHl()">+ Add Highlight</button>
+
+    <div class="S"><span>📡 Standard Ticker</span><button class="BO" style="padding:2px 6px; font-size:10px" onclick="clearArr('tk')">Clear</button></div>
+    <div id="tk_list"></div>
+    <div class="PG">
+      <button class="B BO" onclick="addArr('tk', 'ಹೊಸ ಟಿಕರ್')">+ Add Item</button>
+      <button class="B BG" onclick="syncState()">▶ Update Ticker</button>
+    </div>
+  </div>
+
+  <!-- AI TAB -->
+  <div class="cp-panel" id="p-ai">
+    <div class="S" style="color:#A855F7">🤖 AI "Append" Engine</div>
+    <p style="font-size:12px; color:var(--S); margin-bottom:10px;">Paste text. The AI will extract sentences, assign Sector Icons, keep highlights short (4-5 words), and append everything to your lists instantly.</p>
+    <textarea id="ai_input" style="height: 250px; width: 100%; font-size: 14px; padding:10px; background: rgba(0,0,0,0.3); color:#fff; border: 1px solid rgba(168,85,247,0.4); border-radius: 4px; margin-bottom:10px;" placeholder="Paste news text..."></textarea>
+    <button class="B BP" onclick="processAIText()">✨ Magic Append & Sync</button>
+  </div>
+
+  <!-- LAYOUT TAB -->
+  <div class="cp-panel" id="p-layout">
+    <div class="S">👁️ Element Visibility</div>
+    <div class="TR"><span class="TL">Left Panel</span><label class="TG"><input type="checkbox" id="v_lp" onchange="syncVis('lp',this.checked)"><span class="TS"></span></label></div>
+    <div class="TR"><span class="TL">Right Panel</span><label class="TG"><input type="checkbox" id="v_rp" onchange="syncVis('rp',this.checked)"><span class="TS"></span></label></div>
+    <div class="TR"><span class="TL">Lower Third</span><label class="TG"><input type="checkbox" id="v_lt" onchange="syncVis('lt',this.checked)"><span class="TS"></span></label></div>
+    <div class="TR"><span class="TL">Top Bar Header</span><label class="TG"><input type="checkbox" id="v_top" onchange="syncVis('top',this.checked)"><span class="TS"></span></label></div>
+
+    <div class="S">⏱️ Speeds & Timings</div>
+    <div class="R"><label class="L">Ticker Speed (s)</label><input type="range" min="10" max="100" id="l_tkSpd" oninput="syncLayout('tkSpd', this.value+'s')"></div>
+    <div class="R"><label class="L">Slide Rotate (s)</label><input type="range" min="2" max="15" id="s_rot" onchange="updateGlobal('rotSpeed', this.value*1000)"></div>
+
+    <div class="S">📐 Positions (X / Y)</div>
+    <div class="R"><label class="L">Left Panel X</label><input type="range" min="0" max="200" id="l_lpX" oninput="syncLayout('lpX', this.value+'px')"></div>
+    <div class="R"><label class="L">Left Panel Y</label><input type="range" min="0" max="600" id="l_lpY" oninput="syncLayout('lpY', this.value+'px')"></div>
+    <div class="R"><label class="L">Right Panel X</label><input type="range" min="0" max="200" id="l_rpX" oninput="syncLayout('rpX', this.value+'px')"></div>
+    <div class="R"><label class="L">Right Panel Y</label><input type="range" min="0" max="600" id="l_rpY" oninput="syncLayout('rpY', this.value+'px')"></div>
+    <div class="R"><label class="L">Big Break X</label><input type="range" min="0" max="500" id="l_bbX" oninput="syncLayout('bbX', this.value+'px')"></div>
+    <div class="R"><label class="L">Big Break Y</label><input type="range" min="0" max="500" id="l_bbY" oninput="syncLayout('bbY', this.value+'px')"></div>
+
+    <div class="S">📏 Panel Widths</div>
+    <div class="R"><label class="L">Left Panel W</label><input type="range" min="300" max="600" id="l_lpW" oninput="syncLayout('lpW', this.value+'px')"></div>
+    <div class="R"><label class="L">Right Panel W</label><input type="range" min="300" max="600" id="l_rpW" oninput="syncLayout('rpW', this.value+'px')"></div>
+    <div class="R"><label class="L">Big Break W</label><input type="range" min="600" max="1500" id="l_bbW" oninput="syncLayout('bbW', this.value+'px')"></div>
+
+    <div class="S">✍️ Font Sizes</div>
+    <div class="R"><label class="L">Header Text</label><input type="range" min="24" max="72" id="f_hdr" oninput="syncLayout('fzHdr', this.value+'px')"></div>
+    <div class="R"><label class="L">LT Main</label><input type="range" min="20" max="56" id="f_ltm" oninput="syncLayout('fzLtm', this.value+'px')"></div>
+    <div class="R"><label class="L">LT Kicker</label><input type="range" min="10" max="24" id="f_eye" oninput="syncLayout('fzEye', this.value+'px')"></div>
+    <div class="R"><label class="L">Big Breaking</label><input type="range" min="30" max="100" id="f_bb" oninput="syncLayout('fzBb', this.value+'px')"></div>
+    <div class="R"><label class="L">Highlights</label><input type="range" min="14" max="32" id="f_hl" oninput="syncLayout('fzHl', this.value+'px')"></div>
+  </div>
+</div>
+
+<script>
+// ═════════════════════════════════════════════════════════════
+// 1. FIREBASE CONFIGURATION (PASTE YOURS HERE)
+// ═════════════════════════════════════════════════════════════
+const firebaseConfig = {
+  apiKey: "AIzaSyAvfTf9y21b5Ftx8RAiOGyvYXSTiX-czzk",
+  authDomain: "karnataka-budget.firebaseapp.com",
+  databaseURL: "https://karnataka-budget-default-rtdb.firebaseio.com",
+  projectId: "karnataka-budget",
+  storageBucket: "karnataka-budget.firebasestorage.app",
+  messagingSenderId: "585753727115",
+  appId: "1:585753727115:web:3fe168863fc84023bd448e"
+};
+
+// Initialize Firebase
+if (!firebase.apps.length) { firebase.initializeApp(firebaseConfig); }
+const db = firebase.database();
+const ref = db.ref('vk_broadcast');
+
+// Status Update
+ref.on('value', () => {
+  const st = document.getElementById('FIRE_STATUS');
+  st.textContent = "🟢 CONNECTED TO FIREBASE";
+  st.className = "ok";
+});
+
+// ═════════════════════════════════════════════════════════════
+// STATE MANAGEMENT
+// ═════════════════════════════════════════════════════════════
+let state = {
+  data: { hdr: [], bb: [], tk: [], lt: [], hl: [] },
+  rot: { hdr: 0, bb: 0, lt: 0 },
+  vis: { lp: true, rp: true, lt: true, top: true, bb: false },
+  layout: { lpX:'28px', lpY:'112px', lpW:'440px', rpX:'28px', rpY:'112px', rpW:'390px', bbX:'0px', bbY:'96px', bbW:'960px', tkSpd:'30s', fzHdr:'48px', fzLtm:'36px', fzEye:'12px', fzBb:'56px', fzHl:'18px' },
+  counter: { to: 371383, suf: " ಕೋಟಿ", trigger: 0 },
+  global: { rotSpeed: 4000 }
+};
+
+// Load initial state from Firebase
+ref.once('value', snap => {
+  if(snap.exists()) {
+    const s = snap.val();
+    state = { ...state, ...s };
+    // Init arrays if empty
+    if(!state.data.hdr) state.data.hdr = [];
+    if(!state.data.bb) state.data.bb = [];
+    if(!state.data.tk) state.data.tk = [];
+    if(!state.data.lt) state.data.lt = [];
+    if(!state.data.hl) state.data.hl = [];
+    updateUI();
+  }
+});
+
+function syncState() { ref.set(state); }
+function syncVis(key, val) { state.vis[key] = val; syncState(); }
+function syncLayout(key, val) { state.layout[key] = val; syncState(); }
+function updateGlobal(key, val) { 
+  if(key==='showAll') { state.vis = {lp:val, rp:val, lt:val, top:val, bb:false}; updateUI(); }
+  else { state.global[key] = val; }
+  syncState(); 
+}
+
+function updateUI() {
+  document.getElementById('v_lp').checked = state.vis.lp;
+  document.getElementById('v_rp').checked = state.vis.rp;
+  document.getElementById('v_lt').checked = state.vis.lt;
+  document.getElementById('v_top').checked = state.vis.top;
+  document.getElementById('t_bb').checked = state.vis.bb;
+  
+  // Render arrays
+  renderList('hdr'); renderList('bb'); renderList('tk'); renderList('lt'); renderList('hl');
+}
+
+// ═════════════════════════════════════════════════════════════
+// UI RENDERERS
+// ═════════════════════════════════════════════════════════════
+function switchTab(name, btn) { document.querySelectorAll('.cp-panel').forEach(p => p.classList.remove('A')); document.querySelectorAll('.cptab').forEach(b => b.classList.remove('A')); document.getElementById('p-'+name).classList.add('A'); btn.classList.add('A'); }
+
+function renderList(type) {
+  const box = document.getElementById(type+'_list');
+  const arr = state.data[type];
+  if(!arr) return;
+  
+  box.innerHTML = arr.map((item, i) => {
+    let inputs = '';
+    if(type === 'hdr' || type === 'bb' || type === 'tk') {
+      inputs = `<textarea onchange="state.data['${type}'][${i}]=this.value; syncState()">${item}</textarea>`;
+    } else if (type === 'lt') {
+      inputs = `<div class="R"><input type="text" value="${item.icon}" style="max-width:40px" onchange="state.data.lt[${i}].icon=this.value; syncState()"><input type="text" value="${item.text}" onchange="state.data.lt[${i}].text=this.value; syncState()"></div><div class="R"><input type="text" value="${item.val}" placeholder="Value" onchange="state.data.lt[${i}].val=this.value; syncState()"><input type="text" value="${item.lbl}" placeholder="Label" onchange="state.data.lt[${i}].lbl=this.value; syncState()"></div>`;
+    } else if (type === 'hl') {
+      inputs = `<div class="R"><input type="text" value="${item.icon}" style="max-width:40px" onchange="state.data.hl[${i}].icon=this.value; syncState()"><input type="text" value="${item.txt}" onchange="state.data.hl[${i}].txt=this.value; syncState()"></div>`;
+    }
+    return `<div class="edit-box"><button class="del-btn" onclick="state.data['${type}'].splice(${i},1); syncState(); renderList('${type}')">✕</button>${inputs}</div>`;
+  }).join('');
+}
+
+function addArr(type, val) { state.data[type].unshift(val); syncState(); renderList(type); }
+function addLt() { state.data.lt.unshift({icon:'📌', text:'ಹೊಸ ಮಾಹಿತಿ', val:'-', lbl:'ಮಾಹಿತಿ'}); syncState(); renderList('lt'); }
+function addHl() { state.data.hl.unshift({txt:'ಹೊಸ ಮುಖ್ಯಾಂಶ', icon:'📌'}); syncState(); renderList('hl'); }
+function clearArr(type) { state.data[type] = []; syncState(); renderList(type); }
+
+function triggerCounter() {
+  state.counter.to = document.getElementById('c_to').value;
+  state.counter.suf = document.getElementById('c_suf').value;
+  state.counter.trigger = Date.now();
+  syncState();
+}
+
+// ═════════════════════════════════════════════════════════════
+// AI ENGINE (APPEND MODE & 5-WORD LIMIT)
+// ═════════════════════════════════════════════════════════════
+function processAIText() {
+  const rawText = document.getElementById('ai_input').value.trim();
+  if(!rawText) return alert('Paste text first!');
+  
+  const sentences = rawText.split(/(?:\. |।|\n)+/).map(s => s.trim()).filter(s => s.length > 5);
+  if(sentences.length === 0) return;
+
+  const getIcon = (txt) => {
+    if(/ಕೃಷಿ|ರೈತ|ಬೆಳೆ|ನೀರಾವರಿ/.test(txt)) return '🌾';
+    if(/ಶಿಕ್ಷಣ|ಶಾಲೆ|ವಿದ್ಯಾರ್ಥಿ/.test(txt)) return '🎓';
+    if(/ಆರೋಗ್ಯ|ಆಸ್ಪತ್ರೆ|ವೈದ್ಯ/.test(txt)) return '🏥';
+    if(/ಮಹಿಳೆ|ಗೃಹಲಕ್ಷ್ಮಿ/.test(txt)) return '👩';
+    if(/ರಸ್ತೆ|ಸಾರಿಗೆ|ಮೆಟ್ರೋ/.test(txt)) return '🛣️';
+    if(/ಐಟಿ|ತಂತ್ರಜ್ಞಾನ/.test(txt)) return '💻';
+    if(/ವಸತಿ|ಮನೆ/.test(txt)) return '🏠';
+    if(/ನೀರು|ಜಲ/.test(txt)) return '💧';
+    if(/ವಿದ್ಯುತ್|ಬೆಳಕು/.test(txt)) return '⚡';
+    if(/ಪೊಲೀಸ್|ಕಾನೂನು/.test(txt)) return '👮';
+    if(/ತೆರಿಗೆ|ಜಿಎಸ್ಟಿ|ಬಜೆಟ್|ಕೋಟಿ/.test(txt)) return '💰';
+    return '📌';
+  };
+
+  // Helper to trim to 5 words max for Highlights and Headers
+  const trim5 = (str) => {
+    let w = str.split(' ');
+    return w.length > 5 ? w.slice(0,5).join(' ') + '...' : str;
+  };
+
+  sentences.reverse().forEach(s => {
+    const icon = getIcon(s);
+    
+    // 1. Header (Shortened to 5 words)
+    state.data.hdr.unshift(trim5(s));
+    
+    // 2. Highlights (Shortened to 5 words)
+    state.data.hl.unshift({ txt: trim5(s), icon: icon });
+
+    // 3. Lower Third (Full text, extract number)
+    let num = s.match(/([₹0-9.,]+\s*(?:ಲಕ್ಷ|ಕೋಟಿ|ರೂ|%)?)/);
+    let val = num ? num[1].trim() : '-';
+    if(val !== '-' && !val.startsWith('₹') && !val.endsWith('%')) val = '₹' + val;
+    state.data.lt.unshift({ icon: icon, text: s, val: val, lbl: 'ಮುಖ್ಯಾಂಶ' });
+
+    // 4 & 5. Breaking & Ticker
+    state.data.bb.unshift(s);
+    state.data.tk.unshift(s);
+  });
+
+  // Keep list sizes manageable (keep latest 15)
+  state.data.hdr = state.data.hdr.slice(0,15);
+  state.data.hl = state.data.hl.slice(0,15);
+
+  syncState();
+  updateUI();
+  document.getElementById('ai_input').value = '';
+}
+
+// ═════════════════════════════════════════════════════════════
+// ROTATION INTERVAL (Master Clock)
+// ═════════════════════════════════════════════════════════════
+setInterval(() => {
+  if(state.data.hdr.length > 1) state.rot.hdr = (state.rot.hdr + 1) % state.data.hdr.length;
+  if(state.data.bb.length > 1) state.rot.bb = (state.rot.bb + 1) % state.data.bb.length;
+  if(state.data.lt.length > 1) state.rot.lt = (state.rot.lt + 1) % state.data.lt.length;
+  syncState(); // Push new indices to screen
+}, state.global.rotSpeed || 4000);
+
+</script>
+</body>
+</html>
